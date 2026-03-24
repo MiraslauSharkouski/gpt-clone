@@ -1,5 +1,6 @@
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+import { v4 as uuidv4 } from "uuid";
 
 /**
  * Merge Tailwind CSS classes with clsx for conditional classes
@@ -12,7 +13,7 @@ export function cn(...inputs: ClassValue[]) {
  * Generate a random session ID for anonymous users
  */
 export function generateSessionId(): string {
-  return `sess_${crypto.randomUUID().replace(/-/g, '')}`;
+  return `sess_${uuidv4().replace(/-/g, "")}`;
 }
 
 /**
@@ -23,7 +24,7 @@ export function hashIpAddress(ip: string): string {
   let hash = 0;
   for (let i = 0; i < ip.length; i++) {
     const char = ip.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash;
   }
   return `ip_${Math.abs(hash).toString(16)}`;
@@ -34,7 +35,7 @@ export function hashIpAddress(ip: string): string {
  */
 export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength - 3) + '...';
+  return text.slice(0, maxLength - 3) + "...";
 }
 
 /**
@@ -47,13 +48,13 @@ export function formatDate(dateString: string): string {
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
   if (diffDays === 0) {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   } else if (diffDays === 1) {
-    return 'Yesterday';
+    return "Yesterday";
   } else if (diffDays < 7) {
-    return date.toLocaleDateString([], { weekday: 'long' });
+    return date.toLocaleDateString([], { weekday: "long" });
   } else {
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString([], { month: "short", day: "numeric" });
   }
 }
 
@@ -63,14 +64,14 @@ export function formatDate(dateString: string): string {
 export function validateFile(
   file: File,
   allowedTypes: string[],
-  maxSizeMB: number = 10
+  maxSizeMB: number = 10,
 ): { valid: boolean; error?: string } {
   // Check file type
-  const fileExtension = file.name.split('.').pop()?.toLowerCase();
+  const fileExtension = file.name.split(".").pop()?.toLowerCase();
   if (!fileExtension || !allowedTypes.includes(fileExtension)) {
     return {
       valid: false,
-      error: `File type must be one of: ${allowedTypes.join(', ')}`,
+      error: `File type must be one of: ${allowedTypes.join(", ")}`,
     };
   }
 

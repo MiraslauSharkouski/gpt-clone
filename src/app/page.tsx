@@ -1,24 +1,74 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Upload, Sparkles } from "lucide-react";
+import { MessageSquare, Upload, Sparkles, Loader2 } from "lucide-react";
 
 export default function Home() {
   const router = useRouter();
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  // Create anonymous session on mount
+  useEffect(() => {
+    async function initSession() {
+      try {
+        // Check if we already have a session
+        const checkRes = await fetch("/api/auth/check");
+        if (checkRes.ok) {
+          const data = await checkRes.json();
+          if (!data.upgrade_required) {
+            setIsInitializing(false);
+            return;
+          }
+        }
+
+        // Create new anonymous session
+        const res = await fetch("/api/auth/anonymous", { method: "POST" });
+        if (res.ok) {
+          // Session cookie is set by the API
+          setIsInitializing(false);
+        }
+      } catch (error) {
+        console.error("Failed to initialize session:", error);
+        setIsInitializing(false);
+      }
+    }
+
+    initSession();
+  }, []);
 
   const handleNewChat = async () => {
     try {
       const res = await fetch("/api/chats", { method: "POST" });
       if (res.ok) {
         const data = await res.json();
-        router.push(`/chat/${data.chat.id}`);
+        if (data.session_created) {
+          // Session was created, retry chat creation
+          const retryRes = await fetch("/api/chats", { method: "POST" });
+          if (retryRes.ok) {
+            const retryData = await retryRes.json();
+            router.push(`/chat/${retryData.chat.id}`);
+          }
+        } else if (data.chat) {
+          router.push(`/chat/${data.chat.id}`);
+        }
       }
     } catch (error) {
       console.error("Failed to create chat:", error);
     }
   };
+
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

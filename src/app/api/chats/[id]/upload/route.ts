@@ -1,18 +1,23 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/client';
-import { extractText, countWords, chunkText, generateEmbeddings } from '@/lib/rag';
-import { v4 as uuidv4 } from 'uuid';
+import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@/lib/supabase/client";
+import {
+  extractText,
+  countWords,
+  chunkText,
+  generateEmbeddings,
+} from "@/lib/rag";
+import { v4 as uuidv4 } from "uuid";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '10mb',
+      sizeLimit: "10mb",
     },
   },
 };
 
-const ALLOWED_TYPES = ['pdf', 'docx', 'txt'];
+const ALLOWED_TYPES = ["pdf", "docx", "txt"];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 /**
@@ -21,54 +26,56 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const supabase = createServerClient();
-    const chatId = params.id;
+    const { id: chatId } = await params;
 
     // Get user
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     const userId = user?.id;
 
     if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Verify chat exists and belongs to user
     const { data: chat, error: chatError } = await supabase
-      .from('chats')
-      .select('id')
-      .eq('id', chatId)
-      .eq('user_id', userId)
+      .from("chats")
+      .select("id")
+      .eq("id", chatId)
+      .eq("user_id", userId)
       .single();
 
     if (chatError || !chat) {
-      return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
+      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     }
 
     // Parse form data
     const formData = await req.formData();
-    const file = formData.get('file') as File;
+    const file = formData.get("file") as File;
 
     if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
     // Validate file type
-    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    const fileExtension = file.name.split(".").pop()?.toLowerCase();
     if (!fileExtension || !ALLOWED_TYPES.includes(fileExtension)) {
       return NextResponse.json(
-        { error: `File type must be one of: ${ALLOWED_TYPES.join(', ')}` },
-        { status: 400 }
+        { error: `File type must be one of: ${ALLOWED_TYPES.join(", ")}` },
+        { status: 400 },
       );
     }
 
     // Validate file size
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: 'File size must be less than 10MB' },
-        { status: 400 }
+        { error: "File size must be less than 10MB" },
+        { status: 400 },
       );
     }
 
@@ -81,32 +88,35 @@ export async function POST(
     const filePath = `${userId}/${chatId}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
-      .from('documents')
+      .from("documents")
       .upload(filePath, buffer, {
         contentType: file.type,
         upsert: false,
       });
 
     if (uploadError) {
-      console.error('Upload error:', uploadError);
+      console.error("Upload error:", uploadError);
       return NextResponse.json(
-        { error: 'Failed to upload file' },
-        { status: 500 }
+        { error: "Failed to upload file" },
+        { status: 500 },
       );
     }
 
     // Extract text from file
-    const text = await extractText(buffer, fileExtension as 'pdf' | 'docx' | 'txt');
+    const text = await extractText(
+      buffer,
+      fileExtension as "pdf" | "docx" | "txt",
+    );
     const wordCount = countWords(text);
 
     // Create document record
     const { data: document, error: docError } = await supabase
-      .from('documents')
+      .from("documents")
       .insert({
         chat_id: chatId,
         filename: file.name,
         file_path: filePath,
-        file_type: fileExtension as 'pdf' | 'docx' | 'txt',
+        file_type: fileExtension as "pdf" | "docx" | "txt",
         file_size: file.size,
         word_count: wordCount,
         processed: false,
@@ -115,12 +125,12 @@ export async function POST(
       .single();
 
     if (docError) {
-      console.error('Document insert error:', docError);
+      console.error("Document insert error:", docError);
       // Clean up uploaded file
-      await supabase.storage.from('documents').remove([filePath]);
+      await supabase.storage.from("documents").remove([filePath]);
       return NextResponse.json(
-        { error: 'Failed to save document record' },
-        { status: 500 }
+        { error: "Failed to save document record" },
+        { status: 500 },
       );
     }
 
@@ -141,21 +151,21 @@ export async function POST(
         }));
 
         const { error: chunksError } = await supabase
-          .from('document_chunks')
+          .from("document_chunks")
           .insert(chunkRecords);
 
         if (chunksError) {
-          console.error('Chunks insert error:', chunksError);
+          console.error("Chunks insert error:", chunksError);
         }
       }
 
       // Mark document as processed
       await supabase
-        .from('documents')
+        .from("documents")
         .update({ processed: true })
-        .eq('id', document.id);
+        .eq("id", document.id);
     } catch (e) {
-      console.error('Document processing error:', e);
+      console.error("Document processing error:", e);
       // Don't fail the request, just mark as not processed
     }
 
@@ -167,10 +177,12 @@ export async function POST(
       chunks_count: chunkText(text).length,
     });
   } catch (error) {
-    console.error('Upload error:', error);
+    console.error("Upload error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
-      { status: 500 }
+      {
+        error: error instanceof Error ? error.message : "Internal server error",
+      },
+      { status: 500 },
     );
   }
 }
