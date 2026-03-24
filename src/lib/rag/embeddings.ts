@@ -63,10 +63,12 @@ export async function generateEmbedding(text: string): Promise<number[]> {
  * Generate embeddings for multiple texts in batch
  */
 export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
-  const apiKey = process.env.QWEN_API_KEY;
-  if (!apiKey) {
-    throw new Error("QWEN_API_KEY is not configured");
+  // Return mock embeddings if not configured
+  if (!isEmbeddingConfigured()) {
+    return texts.map(() => createMockEmbedding(EMBEDDING_DIM));
   }
+
+  const apiKey = process.env.QWEN_API_KEY;
 
   // Process in batches of 25 to avoid API limits
   const batchSize = 25;
