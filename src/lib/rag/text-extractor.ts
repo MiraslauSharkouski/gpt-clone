@@ -1,19 +1,22 @@
-import { extractTextFromPDF } from './pdf-extractor';
-import { extractTextFromDOCX } from './docx-extractor';
-import { extractTextFromTXT } from './txt-extractor';
+import { extractTextFromPDF } from "./pdf-extractor";
+import { extractTextFromDOCX } from "./docx-extractor";
+import { extractTextFromTXT } from "./txt-extractor";
 
-export type FileType = 'pdf' | 'docx' | 'txt';
+export type FileType = "pdf" | "docx" | "txt";
 
 /**
  * Extract text from a file based on its type
  */
-export async function extractText(buffer: Buffer, fileType: FileType): Promise<string> {
+export async function extractText(
+  buffer: Buffer,
+  fileType: FileType,
+): Promise<string> {
   switch (fileType) {
-    case 'pdf':
+    case "pdf":
       return extractTextFromPDF(buffer);
-    case 'docx':
+    case "docx":
       return extractTextFromDOCX(buffer);
-    case 'txt':
+    case "txt":
       return extractTextFromTXT(buffer);
     default:
       throw new Error(`Unsupported file type: ${fileType}`);
@@ -24,5 +27,8 @@ export async function extractText(buffer: Buffer, fileType: FileType): Promise<s
  * Count words in text
  */
 export function countWords(text: string): number {
-  return text.trim().split(/\s+/).filter((word) => word.length > 0).length;
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word.length > 0).length;
 }
