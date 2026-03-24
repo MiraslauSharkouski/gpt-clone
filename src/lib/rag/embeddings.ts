@@ -1,0 +1,89 @@
+const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || 'text-embedding-v3';
+const EMBEDDING_DIM = parseInt(process.env.EMBEDDING_DIM || '1536', 10);
+const DASHSCOPE_BASE = 'https://dashscope.aliyuncs.com/api/v1';
+
+/**
+ * Generate embeddings for text using DashScope embedding API
+ */
+export async function generateEmbedding(text: string): Promise<number[]> {
+  const apiKey = process.env.QWEN_API_KEY;
+  if (!apiKey) {
+    throw new Error('QWEN_API_KEY is not configured');
+  }
+
+  const response = await fetch(`${DASHSCOPE_BASE}/embeddings`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: EMBEDDING_MODEL,
+      input: {
+        texts: [text],
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Embedding API error: ${response.status} - ${error}`);
+  }
+
+  const data = await response.json();
+  const embedding = data.output?.embeddings?.[0]?.embedding;
+
+  if (!embedding || embedding.length !== EMBEDDING_DIM) {
+    throw new Error(`Invalid embedding response: expected ${EMBEDDING_DIM} dimensions`);
+  }
+
+  return embedding;
+}
+
+/**
+ * Generate embeddings for multiple texts in batch
+ */
+export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
+  const apiKey = process.env.QWEN_API_KEY;
+  if (!apiKey) {
+    throw new Error('QWEN_API_KEY is not configured');
+  }
+
+  // Process in batches of 25 to avoid API limits
+  const batchSize = 25;
+  const allEmbeddings: number[][] = [];
+
+  for (let i = 0; i < texts.length; i += batchSize) {
+    const batch = texts.slice(i, i + batchSize);
+    
+    const response = await fetch(`${DASHSCOPE_BASE}/embeddings`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: EMBEDDING_MODEL,
+        input: {
+          texts: batch,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Embedding API error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    const embeddings = data.output?.embeddings?.map((e: { embedding: number[] }) => e.embedding);
+
+    if (!embeddings) {
+      throw new Error('Invalid embedding response');
+    }
+
+    allEmbeddings.push(...embeddings);
+  }
+
+  return allEmbeddings;
+}
