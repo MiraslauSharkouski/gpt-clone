@@ -1,75 +1,60 @@
-import { Server, ServerOptions } from 'socket.io';
+// Socket.IO server setup (optional - for cross-tab sync)
+// This file is for reference if you want to set up a separate WebSocket server
 
-let io: Server | null = null;
+// For Vercel deployment, use Supabase Realtime instead:
+// https://supabase.com/docs/guides/realtime
 
-/**
- * Initialize Socket.IO server
- * Call this in your custom server or API route
- */
-export function initSocketIO(options?: Partial<ServerOptions>): Server {
-  if (io) {
-    return io;
-  }
+// If you want to use Socket.IO, create a separate server:
+/*
+import { Server } from 'socket.io';
+import http from 'http';
 
-  io = new Server({
-    cors: {
-      origin: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-      methods: ['GET', 'POST'],
-    },
-    adapter: process.env.SOCKET_IO_REDIS_URL
-      ? await import('@socket.io/redis-adapter').then((m) => {
-          const { createAdapter } = m;
-          const { createClient } = require('redis');
-          const pubClient = createClient({ url: process.env.SOCKET_IO_REDIS_URL });
-          const subClient = pubClient.duplicate();
-          Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
-            return createAdapter(pubClient, subClient);
-          });
-        })
-      : undefined,
-    ...options,
+const server = http.createServer();
+const io = new Server(server, {
+  cors: {
+    origin: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    methods: ['GET', 'POST'],
+  },
+});
+
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+
+  socket.on('subscribe:chat', (chatId: string) => {
+    socket.join(`chat:${chatId}`);
   });
 
-  io.on('connection', (socket) => {
-    console.log('Client connected:', socket.id);
+  socket.on('unsubscribe:chat', (chatId: string) => {
+    socket.leave(`chat:${chatId}`);
+  });
 
-    // Subscribe to chat room
-    socket.on('subscribe:chat', (chatId: string) => {
-      socket.join(`chat:${chatId}`);
-      console.log(`Client ${socket.id} subscribed to chat:${chatId}`);
-    });
-
-    // Unsubscribe from chat room
-    socket.on('unsubscribe:chat', (chatId: string) => {
-      socket.leave(`chat:${chatId}`);
-      console.log(`Client ${socket.id} unsubscribed from chat:${chatId}`);
-    });
-
-    // Broadcast message to chat room
-    socket.on('message:sent', (data: { chatId: string; messageId: string; content: string; role: string }) => {
-      socket.to(`chat:${data.chatId}`).emit('chat:updated', {
-        type: 'message:sent',
-        data,
-      });
-    });
-
-    // Broadcast typing status
-    socket.on('user:typing', (data: { chatId: string; userId: string; isTyping: boolean }) => {
-      socket.to(`chat:${data.chatId}`).emit('user:typing', data);
-    });
-
-    // Handle disconnection
-    socket.on('disconnect', () => {
-      console.log('Client disconnected:', socket.id);
+  socket.on('message:sent', (data: { chatId: string; messageId: string; content: string; role: string }) => {
+    socket.to(`chat:${data.chatId}`).emit('chat:updated', {
+      type: 'message:sent',
+      data,
     });
   });
 
-  return io;
+  socket.on('user:typing', (data: { chatId: string; userId: string; isTyping: boolean }) => {
+    socket.to(`chat:${data.chatId}`).emit('user:typing', data);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+  });
+});
+
+export { io, server };
+*/
+
+// For now, cross-tab sync is handled by Supabase Realtime
+export function initSocketIO() {
+  console.log(
+    "Socket.IO server not configured - using Supabase Realtime instead",
+  );
+  return null;
 }
 
-/**
- * Get the Socket.IO server instance
- */
-export function getSocketIO(): Server | null {
-  return io;
+export function getSocketIO() {
+  return null;
 }
