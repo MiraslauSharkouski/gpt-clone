@@ -1,13 +1,46 @@
-import type { QwenMessage, QwenRequest, QwenStreamResponse } from '@/types';
+import type { QwenMessage, QwenRequest, QwenStreamResponse } from "@/types";
 
 const QWEN_API_KEY = process.env.QWEN_API_KEY;
-const QWEN_API_BASE = process.env.QWEN_API_BASE || 'https://dashscope.aliyuncs.com/api/v1';
-const QWEN_MODEL = 'qwen-plus';
+const QWEN_API_BASE =
+  process.env.QWEN_API_BASE || "https://dashscope.aliyuncs.com/api/v1";
+const QWEN_MODEL = "qwen-plus";
 
 /**
  * System prompt for the AI assistant
  */
 export const SYSTEM_PROMPT = `You are a helpful, harmless, and honest AI assistant. You provide accurate, thoughtful responses while being concise and clear. If you don't know something, say so. If the user provides context or documents, use them to inform your response but acknowledge when the context doesn't contain the answer.`;
+
+/**
+ * Check if Qwen API is configured
+ */
+export function isQwenConfigured(): boolean {
+  return !!QWEN_API_KEY && QWEN_API_KEY !== "sk-placeholder";
+}
+
+/**
+ * Create a mock stream for development/testing
+ */
+function createMockStream(): ReadableStream {
+  const encoder = new TextEncoder();
+  const mockResponse =
+    "Hello! I'm Qwen AI. To enable real responses, please configure your QWEN_API_KEY in the .env.local file. I'm ready to help you with your questions!";
+
+  return new ReadableStream({
+    async start(controller) {
+      const words = mockResponse.split(" ");
+      for (const word of words) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ content: word + " " })}\n\n`,
+          ),
+        );
+      }
+      controller.enqueue(encoder.encode('data: {"done": true}\n\n'));
+      controller.close();
+    },
+  });
+}
 
 /**
  * Call Qwen API with streaming support
@@ -24,17 +57,18 @@ export async function streamQwenResponse({
   temperature?: number;
   maxTokens?: number;
 }): Promise<ReadableStream> {
-  if (!QWEN_API_KEY) {
-    throw new Error('QWEN_API_KEY is not configured');
+  // Return mock response if not configured
+  if (!isQwenConfigured()) {
+    return createMockStream();
   }
 
   const systemMessages: QwenMessage[] = [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: "system", content: SYSTEM_PROMPT },
   ];
 
   if (context) {
     systemMessages.push({
-      role: 'system',
+      role: "system",
       content: `Context from documents:\n${context}`,
     });
   }
@@ -48,10 +82,10 @@ export async function streamQwenResponse({
   };
 
   const response = await fetch(`${QWEN_API_BASE}/chat/completions`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Authorization': `Bearer ${QWEN_API_KEY}`,
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${QWEN_API_KEY}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(requestBody),
   });
@@ -73,7 +107,7 @@ export async function streamQwenResponse({
       const decoder = new TextDecoder();
 
       if (!reader) {
-        throw new Error('No response body');
+        throw new Error("No response body");
       }
 
       while (true) {
@@ -81,17 +115,21 @@ export async function streamQwenResponse({
         if (done) break;
 
         const chunk = decoder.decode(value);
-        const lines = chunk.split('\n').filter((line) => line.trim().startsWith('data:'));
+        const lines = chunk
+          .split("\n")
+          .filter((line) => line.trim().startsWith("data:"));
 
         for (const line of lines) {
-          const data = line.replace('data:', '').trim();
-          if (data === '[DONE]') continue;
+          const data = line.replace("data:", "").trim();
+          if (data === "[DONE]") continue;
 
           try {
             const parsed: QwenStreamResponse = JSON.parse(data);
-            const content = parsed.choices?.[0]?.delta?.content || '';
+            const content = parsed.choices?.[0]?.delta?.content || "";
             if (content) {
-              await writer.write(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
+              await writer.write(
+                encoder.encode(`data: ${JSON.stringify({ content })}\n\n`),
+              );
             }
           } catch (e) {
             // Skip invalid JSON
@@ -102,9 +140,10 @@ export async function streamQwenResponse({
       await writer.write(encoder.encode('data: {"done": true}\n\n'));
       await writer.close();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       await writer.write(
-        encoder.encode(`data: ${JSON.stringify({ error: errorMessage })}\n\n`)
+        encoder.encode(`data: ${JSON.stringify({ error: errorMessage })}\n\n`),
       );
       await writer.close();
     }
@@ -127,17 +166,18 @@ export async function chatQwen({
   temperature?: number;
   maxTokens?: number;
 }): Promise<string> {
-  if (!QWEN_API_KEY) {
-    throw new Error('QWEN_API_KEY is not configured');
+  // Return mock response if not configured
+  if (!isQwenConfigured()) {
+    return "Hello! I'm Qwen AI. To enable real responses, please configure your QWEN_API_KEY in the .env.local file.";
   }
 
   const systemMessages: QwenMessage[] = [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: "system", content: SYSTEM_PROMPT },
   ];
 
   if (context) {
     systemMessages.push({
-      role: 'system',
+      role: "system",
       content: `Context from documents:\n${context}`,
     });
   }
@@ -151,10 +191,10 @@ export async function chatQwen({
   };
 
   const response = await fetch(`${QWEN_API_BASE}/chat/completions`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Authorization': `Bearer ${QWEN_API_KEY}`,
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${QWEN_API_KEY}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(requestBody),
   });
@@ -165,5 +205,5 @@ export async function chatQwen({
   }
 
   const data = await response.json();
-  return data.choices?.[0]?.message?.content || '';
+  return data.choices?.[0]?.message?.content || "";
 }

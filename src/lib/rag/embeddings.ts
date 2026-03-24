@@ -1,21 +1,38 @@
-const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || 'text-embedding-v3';
-const EMBEDDING_DIM = parseInt(process.env.EMBEDDING_DIM || '1536', 10);
-const DASHSCOPE_BASE = 'https://dashscope.aliyuncs.com/api/v1';
+const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || "text-embedding-v3";
+const EMBEDDING_DIM = parseInt(process.env.EMBEDDING_DIM || "1536", 10);
+const DASHSCOPE_BASE = "https://dashscope.aliyuncs.com/api/v1";
+
+/**
+ * Check if embedding API is configured
+ */
+function isEmbeddingConfigured(): boolean {
+  const apiKey = process.env.QWEN_API_KEY;
+  return !!apiKey && apiKey !== "sk-placeholder";
+}
+
+/**
+ * Generate mock embedding for development/testing
+ */
+function createMockEmbedding(length: number): number[] {
+  return Array.from({ length }, () => Math.random() * 2 - 1);
+}
 
 /**
  * Generate embeddings for text using DashScope embedding API
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
-  const apiKey = process.env.QWEN_API_KEY;
-  if (!apiKey) {
-    throw new Error('QWEN_API_KEY is not configured');
+  // Return mock embedding if not configured
+  if (!isEmbeddingConfigured()) {
+    return createMockEmbedding(EMBEDDING_DIM);
   }
 
+  const apiKey = process.env.QWEN_API_KEY;
+
   const response = await fetch(`${DASHSCOPE_BASE}/embeddings`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model: EMBEDDING_MODEL,
@@ -34,7 +51,9 @@ export async function generateEmbedding(text: string): Promise<number[]> {
   const embedding = data.output?.embeddings?.[0]?.embedding;
 
   if (!embedding || embedding.length !== EMBEDDING_DIM) {
-    throw new Error(`Invalid embedding response: expected ${EMBEDDING_DIM} dimensions`);
+    throw new Error(
+      `Invalid embedding response: expected ${EMBEDDING_DIM} dimensions`,
+    );
   }
 
   return embedding;
@@ -46,7 +65,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
   const apiKey = process.env.QWEN_API_KEY;
   if (!apiKey) {
-    throw new Error('QWEN_API_KEY is not configured');
+    throw new Error("QWEN_API_KEY is not configured");
   }
 
   // Process in batches of 25 to avoid API limits
@@ -55,12 +74,12 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
 
   for (let i = 0; i < texts.length; i += batchSize) {
     const batch = texts.slice(i, i + batchSize);
-    
+
     const response = await fetch(`${DASHSCOPE_BASE}/embeddings`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model: EMBEDDING_MODEL,
@@ -76,10 +95,12 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
     }
 
     const data = await response.json();
-    const embeddings = data.output?.embeddings?.map((e: { embedding: number[] }) => e.embedding);
+    const embeddings = data.output?.embeddings?.map(
+      (e: { embedding: number[] }) => e.embedding,
+    );
 
     if (!embeddings) {
-      throw new Error('Invalid embedding response');
+      throw new Error("Invalid embedding response");
     }
 
     allEmbeddings.push(...embeddings);
