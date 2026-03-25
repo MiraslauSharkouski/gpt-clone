@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React, { useEffect, useRef } from 'react';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Message } from './message';
-import type { Message as MessageType } from '@/types';
+import React, { useEffect, useRef } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Message } from "./message";
+import type { Message as MessageType } from "@/types";
 
 interface MessageListProps {
   messages: MessageType[];
@@ -11,13 +11,17 @@ interface MessageListProps {
   isStreaming?: boolean;
 }
 
-export function MessageList({ messages, streamingMessage, isStreaming }: MessageListProps) {
+export function MessageList({
+  messages,
+  streamingMessage,
+  isStreaming,
+}: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingMessage]);
 
   return (
@@ -26,8 +30,10 @@ export function MessageList({ messages, streamingMessage, isStreaming }: Message
         {messages.length === 0 && !streamingMessage && (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
             <div className="text-center space-y-2">
-              <p className="text-lg font-medium">Welcome to QwenChat</p>
-              <p className="text-sm">Start a conversation or upload a document</p>
+              <p className="text-lg font-medium">Welcome to ChatGPT</p>
+              <p className="text-sm">
+                Start a conversation or upload a document
+              </p>
             </div>
           </div>
         )}
