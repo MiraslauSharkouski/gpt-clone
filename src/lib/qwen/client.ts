@@ -1,9 +1,20 @@
 import type { QwenMessage, QwenRequest, QwenStreamResponse } from "@/types";
 
 const QWEN_API_KEY = process.env.QWEN_API_KEY;
-const QWEN_API_BASE =
+let QWEN_API_BASE =
   process.env.QWEN_API_BASE || "https://dashscope.aliyuncs.com/api/v1";
-const QWEN_MODEL = "qwen-plus";
+const QWEN_MODEL = process.env.QWEN_MODEL || "qwen-plus";
+
+// Detect OpenRouter and adjust endpoint
+const isOpenRouter = QWEN_API_KEY?.startsWith("sk-or-");
+if (isOpenRouter) {
+  QWEN_API_BASE = "https://openrouter.ai/api/v1";
+} else if (QWEN_API_BASE.includes("/compatible-mode")) {
+  QWEN_API_BASE = QWEN_API_BASE.replace("/compatible-mode/v1", "").replace(
+    "/compatible-mode",
+    "",
+  );
+}
 
 /**
  * System prompt for the AI assistant
