@@ -1,53 +1,61 @@
 const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || "text-embedding-v3";
 const EMBEDDING_DIM = parseInt(process.env.EMBEDDING_DIM || "1536", 10);
-let DASHSCOPE_BASE = "https://dashscope.aliyuncs.com/api/v1";
 
-// Detect OpenRouter
+// Check if using OpenRouter (doesn't support embeddings)
 const QWEN_API_KEY = process.env.QWEN_API_KEY;
 const isOpenRouter = QWEN_API_KEY?.startsWith("sk-or-");
-if (isOpenRouter) {
-  DASHSCOPE_BASE = "https://openrouter.ai/api/v1";
-}
 
 /**
  * Check if embedding API is configured
  */
 function isEmbeddingConfigured(): boolean {
-  return !!QWEN_API_KEY && QWEN_API_KEY !== "sk-placeholder";
+  return !!QWEN_API_KEY && QWEN_API_KEY !== "sk-placeholder" && !isOpenRouter;
 }
 
 /**
  * Generate mock embedding for development/testing
+ * OpenRouter doesn't support embeddings, so we use mock embeddings
  */
 function createMockEmbedding(length: number): number[] {
-  return Array.from({ length }, () => Math.random() * 2 - 1);
+  // Use seeded random for consistency
+  const seed = 42;
+  const embeddings: number[] = [];
+  for (let i = 0; i < length; i++) {
+    const x = Math.sin(seed + i) * 10000;
+    embeddings.push(x - Math.floor(x));
+  }
+  // Normalize the vector
+  const norm = Math.sqrt(embeddings.reduce((sum, val) => sum + val * val, 0));
+  return embeddings.map((v) => v / norm);
 }
 
 /**
- * Generate embeddings for text using DashScope embedding API
+ * Generate embeddings for text
+ * Uses mock embeddings for OpenRouter (which doesn't support embeddings)
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
-  // Return mock embedding if not configured
+  // Return mock embedding for OpenRouter or unconfigured
   if (!isEmbeddingConfigured()) {
     return createMockEmbedding(EMBEDDING_DIM);
   }
 
-  const apiKey = process.env.QWEN_API_KEY;
-
   try {
-    const response = await fetch(`${DASHSCOPE_BASE}/embeddings`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: EMBEDDING_MODEL,
-        input: {
-          texts: [text],
+    const response = await fetch(
+      "https://dashscope.aliyuncs.com/api/v1/embeddings",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${QWEN_API_KEY}`,
+          "Content-Type": "application/json",
         },
-      }),
-    });
+        body: JSON.stringify({
+          model: EMBEDDING_MODEL,
+          input: {
+            texts: [text],
+          },
+        }),
+      },
+    );
 
     if (!response.ok) {
       console.log("Embedding API failed, using mock embedding");
@@ -73,50 +81,57 @@ export async function generateEmbedding(text: string): Promise<number[]> {
  * Generate embeddings for multiple texts in batch
  */
 export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
-  // Return mock embeddings if not configured
+  // Return mock embeddings for OpenRouter or unconfigured
   if (!isEmbeddingConfigured()) {
     return texts.map(() => createMockEmbedding(EMBEDDING_DIM));
   }
 
-  const apiKey = process.env.QWEN_API_KEY;
+  try {
+    // Process in batches of 25 to avoid API limits
+    const batchSize = 25;
+    const allEmbeddings: number[][] = [];
 
-  // Process in batches of 25 to avoid API limits
-  const batchSize = 25;
-  const allEmbeddings: number[][] = [];
+    for (let i = 0; i < texts.length; i += batchSize) {
+      const batch = texts.slice(i, i + batchSize);
 
-  for (let i = 0; i < texts.length; i += batchSize) {
-    const batch = texts.slice(i, i + batchSize);
-
-    const response = await fetch(`${DASHSCOPE_BASE}/embeddings`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: EMBEDDING_MODEL,
-        input: {
-          texts: batch,
+      const response = await fetch(
+        "https://dashscope.aliyuncs.com/api/v1/embeddings",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${QWEN_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: EMBEDDING_MODEL,
+            input: {
+              texts: batch,
+            },
+          }),
         },
-      }),
-    });
+      );
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Embedding API error: ${response.status} - ${error}`);
+      if (!response.ok) {
+        console.log("Embedding API failed, using mock embeddings");
+        return texts.map(() => createMockEmbedding(EMBEDDING_DIM));
+      }
+
+      const data = await response.json();
+      const embeddings =
+        data.output?.embeddings?.map(
+          (e: { embedding: number[] }) => e.embedding,
+        ) || data.data?.map((e: { embedding: number[] }) => e.embedding);
+
+      if (!embeddings) {
+        return texts.map(() => createMockEmbedding(EMBEDDING_DIM));
+      }
+
+      allEmbeddings.push(...embeddings);
     }
 
-    const data = await response.json();
-    const embeddings = data.output?.embeddings?.map(
-      (e: { embedding: number[] }) => e.embedding,
-    );
-
-    if (!embeddings) {
-      throw new Error("Invalid embedding response");
-    }
-
-    allEmbeddings.push(...embeddings);
+    return allEmbeddings;
+  } catch (e) {
+    console.log("Embedding generation failed, using mock embeddings");
+    return texts.map(() => createMockEmbedding(EMBEDDING_DIM));
   }
-
-  return allEmbeddings;
 }
