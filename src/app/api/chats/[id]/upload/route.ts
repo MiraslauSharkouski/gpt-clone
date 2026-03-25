@@ -9,13 +9,8 @@ import {
 import { v4 as uuidv4 } from "uuid";
 
 export const runtime = "nodejs";
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: "10mb",
-    },
-  },
-};
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const ALLOWED_TYPES = ["pdf", "docx", "txt"];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -110,8 +105,9 @@ export async function POST(
     const wordCount = countWords(text);
 
     // Create document record
-    const { data: document, error: docError } = await supabase
-      .from("documents")
+    const { data: document, error: docError } = await (
+      supabase.from("documents") as any
+    )
       .insert({
         chat_id: chatId,
         filename: file.name,
@@ -150,9 +146,9 @@ export async function POST(
           chunk_index: index,
         }));
 
-        const { error: chunksError } = await supabase
-          .from("document_chunks")
-          .insert(chunkRecords);
+        const { error: chunksError } = await (
+          supabase.from("document_chunks") as any
+        ).insert(chunkRecords);
 
         if (chunksError) {
           console.error("Chunks insert error:", chunksError);
@@ -160,8 +156,7 @@ export async function POST(
       }
 
       // Mark document as processed
-      await supabase
-        .from("documents")
+      await (supabase.from("documents") as any)
         .update({ processed: true })
         .eq("id", document.id);
     } catch (e) {
