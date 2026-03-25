@@ -27,19 +27,33 @@ export async function POST(
     const supabase = createServerClient();
     const { id: chatId } = await params;
 
-    // Get user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    const userId = user?.id;
+    const sessionId = req.cookies.get("anonymous_session")?.value;
+
+    // Get user (or use anonymous session)
+    let userId: string | null = null;
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      userId = user?.id ?? null;
+    } catch (e) {
+      // Not authenticated, check anonymous session
+    }
+
+    if (!userId && sessionId) {
+      // Use anonymous session ID as user ID
+      userId = sessionId;
+    }
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Verify chat exists and belongs to user
-    const { data: chat, error: chatError } = await supabase
-      .from("chats")
+    const { data: chat, error: chatError } = await (
+      supabase.from("chats") as any
+    )
       .select("id")
       .eq("id", chatId)
       .eq("user_id", userId)
