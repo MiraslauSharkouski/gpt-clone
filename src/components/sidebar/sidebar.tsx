@@ -72,7 +72,9 @@ export function Sidebar({
 
           {/* Desktop title */}
           <div className="hidden lg:block p-4 border-b">
-            <h2 className="font-semibold text-lg">QwenChat</h2>
+            <h2 className="font-semibold text-lg">
+              <a href="/">ChatGPT</a>
+            </h2>
           </div>
 
           {/* Chat list */}
