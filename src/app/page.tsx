@@ -120,7 +120,7 @@ export default function Home() {
               <Sparkles className="w-8 h-8" />
             </div>
             <h2 className="text-3xl font-bold tracking-tight">
-              Welcome to QwenChat
+              Welcome to ChatGPT
             </h2>
             <p className="text-muted-foreground text-lg">
               Your AI-powered chat assistant with document understanding
