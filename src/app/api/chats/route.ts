@@ -18,8 +18,9 @@ export async function GET(req: NextRequest) {
     // Get session info - handle case where table might not exist
     let userId = sessionId;
     try {
-      const { data: session, error: sessionError } = await supabase
-        .from("anonymous_sessions")
+      const { data: session, error: sessionError } = await (
+        supabase.from("anonymous_sessions") as any
+      )
         .select("upgraded_to_user_id")
         .eq("session_id", sessionId)
         .gt("expires_at", new Date().toISOString())
