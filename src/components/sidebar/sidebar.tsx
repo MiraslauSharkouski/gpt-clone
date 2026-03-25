@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { Menu, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { ChatList } from './chat-list';
-import { UserProfile } from './user-profile';
-import { cn } from '@/lib/utils';
-import type { Chat } from '@/types';
+import React from "react";
+import { Menu, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ChatList } from "./chat-list";
+import { UserProfile } from "./user-profile";
+import { cn } from "@/lib/utils";
+import type { Chat } from "@/types";
 
 interface SidebarProps {
   chats: Chat[];
@@ -45,8 +45,8 @@ export function Sidebar({
       {/* Mobile overlay */}
       <div
         className={cn(
-          'fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity',
-          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          "fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity",
+          isOpen ? "opacity-100" : "opacity-0 pointer-events-none",
         )}
         onClick={onClose}
       />
@@ -54,9 +54,11 @@ export function Sidebar({
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed lg:static inset-y-0 left-0 z-50 w-72 bg-background border-r',
-          'transform transition-transform duration-200 lg:transform-none',
-          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          "fixed lg:static inset-y-0 left-0 z-50 w-72 bg-background border-r",
+          "transform transition-transform duration-200 lg:transform-none",
+          isOpen
+            ? "translate-x-0 bg-white"
+            : "-translate-x-full lg:translate-x-0 bg-white",
         )}
       >
         <div className="flex flex-col h-full">

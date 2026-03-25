@@ -32,6 +32,23 @@ export default function ChatPage() {
   const [remainingMessages, setRemainingMessages] = useState(3);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
+  // Check auth status
+  const checkAuthStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/check");
+      if (res.ok) {
+        const data = await res.json();
+        setIsAnonymous(!data.is_authenticated && !data.dev_mode);
+        setRemainingMessages(data.remaining ?? (data.dev_mode ? 999 : 3));
+        if (data.dev_mode || data.is_authenticated) {
+          setEmail(data.email || email);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to check auth:", error);
+    }
+  }, [email]);
+
   // Load chats
   const loadChats = useCallback(async () => {
     try {
@@ -312,6 +329,7 @@ export default function ChatPage() {
         setEmail(email);
         setIsAnonymous(false);
         setRemainingMessages(999); // Unlimited for authenticated users
+        await checkAuthStatus(); // Refresh auth state
         toast({
           title: "Email verified!",
           description: "You now have unlimited messages",
@@ -325,13 +343,14 @@ export default function ChatPage() {
         });
       } else {
         setEmail(email);
+        await checkAuthStatus(); // Refresh auth state
         toast({
           title: "Verification email sent",
           description: "Check your inbox to verify your email",
         });
       }
     },
-    [setEmail, setRemainingMessages, toast],
+    [checkAuthStatus, setRemainingMessages, toast],
   );
 
   return (

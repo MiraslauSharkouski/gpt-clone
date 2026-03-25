@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React, { useState, useRef, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
-import { Send, Paperclip, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React, { useState, useRef, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Send, Paperclip, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -18,9 +18,9 @@ export function ChatInput({
   onUpload,
   isLoading,
   disabled,
-  placeholder = 'Type a message...',
+  placeholder = "Type a message...",
 }: ChatInputProps) {
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSubmit = useCallback(
@@ -28,18 +28,18 @@ export function ChatInput({
       e?.preventDefault();
       if (message.trim() && !isLoading && !disabled) {
         onSend(message.trim());
-        setMessage('');
+        setMessage("");
         // Reset textarea height
         if (textareaRef.current) {
-          textareaRef.current.style.height = 'auto';
+          textareaRef.current.style.height = "auto";
         }
       }
     },
-    [message, isLoading, disabled, onSend]
+    [message, isLoading, disabled, onSend],
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
     }
@@ -49,7 +49,7 @@ export function ChatInput({
     setMessage(e.target.value);
     // Auto-resize textarea
     const textarea = e.target;
-    textarea.style.height = 'auto';
+    textarea.style.height = "auto";
     textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
   };
 
@@ -57,16 +57,13 @@ export function ChatInput({
     const file = e.target.files?.[0];
     if (file && onUpload) {
       onUpload(file);
-      e.target.value = '';
+      e.target.value = "";
     }
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="border-t bg-background p-4"
-    >
-      <div className="flex items-end gap-2 max-w-4xl mx-auto">
+    <form onSubmit={handleSubmit} className="border-t bg-background p-4">
+      <div className="flex gap-2 max-w-4xl mx-auto items-center">
         {onUpload && (
           <label htmlFor="file-upload">
             <Button
@@ -99,13 +96,13 @@ export function ChatInput({
             disabled={isLoading || disabled}
             rows={1}
             className={cn(
-              'w-full resize-none rounded-lg border border-input bg-background',
-              'px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-              'disabled:cursor-not-allowed disabled:opacity-50',
-              'max-h-[200px]'
+              "w-full resize-none rounded-lg border border-input bg-background",
+              "px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              "max-h-[200px]",
             )}
-            style={{ minHeight: '44px' }}
+            style={{ minHeight: "44px" }}
           />
         </div>
 
