@@ -7,8 +7,6 @@ import {
   formatContext,
 } from "@/lib/rag";
 
-export const runtime = "edge";
-
 /**
  * POST /api/chats/[id]/messages
  * Send a message and stream the AI response

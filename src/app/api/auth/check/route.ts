@@ -93,13 +93,41 @@ export async function GET(req: NextRequest) {
     }
 
     // No session in database - return dev mode response
-    return NextResponse.json({
+    // Check if we have an email stored in session
+    const response: any = {
       session_id: sessionId,
       is_authenticated: false,
       upgrade_required: false,
-      remaining: 3,
+      remaining: 999,
       dev_mode: true,
-    });
+    };
+
+    // Try to get email from upgraded session
+    try {
+      const { data } = (await supabase
+        .from("anonymous_sessions")
+        .select("upgraded_to_user_id")
+        .eq("session_id", sessionId)
+        .single()) as any;
+
+      if (data?.upgraded_to_user_id) {
+        // Get user email
+        const { data: userData } = (await supabase
+          .from("profiles")
+          .select("email")
+          .eq("id", data.upgraded_to_user_id)
+          .single()) as any;
+
+        if (userData?.email) {
+          response.email = userData.email;
+          response.is_authenticated = true;
+        }
+      }
+    } catch (e) {
+      // Ignore errors
+    }
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error("Auth check error:", error);
     const sessionId =

@@ -39,6 +39,26 @@ export async function POST(req: NextRequest) {
       // Development mode - simulate success and upgrade
       console.log("Development mode: Simulating upgrade for", email);
 
+      // Store email in session for dev mode
+      try {
+        await supabase.from("anonymous_sessions").upsert(
+          {
+            session_id,
+            ip_hash: "dev",
+            message_count: 0,
+            expires_at: new Date(
+              Date.now() + 365 * 24 * 60 * 60 * 1000,
+            ).toISOString(),
+            upgraded_to_user_id: session_id,
+          } as any,
+          {
+            onConflict: "session_id",
+          },
+        );
+      } catch (e) {
+        console.log("Could not store upgrade in database");
+      }
+
       // In dev mode, immediately mark as upgraded
       return NextResponse.json({
         message: "Development mode - email verified",
