@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Menu, Plus } from "lucide-react";
+import { supabase } from "@/lib/supabase/client";
 import type { Chat, Message } from "@/types";
 
 export default function ChatPage() {
@@ -32,22 +33,54 @@ export default function ChatPage() {
   const [remainingMessages, setRemainingMessages] = useState(3);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
-  // Check auth status
+  // Check auth status (client-side for real-time updates)
   const checkAuthStatus = useCallback(async () => {
     try {
-      const res = await fetch("/api/auth/check");
+      // Check Supabase auth first (client-side)
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session) {
+        // User is authenticated via Supabase
+        setIsAnonymous(false);
+        setEmail(session.user.email || null);
+        setRemainingMessages(999); // Unlimited for authenticated users
+        return;
+      }
+
+      // Fallback: check server session
+      const res = await fetch("/api/auth/session");
       if (res.ok) {
         const data = await res.json();
-        setIsAnonymous(!data.is_authenticated && !data.dev_mode);
-        setRemainingMessages(data.remaining ?? (data.dev_mode ? 999 : 3));
-        if (data.dev_mode || data.is_authenticated) {
-          setEmail(data.email || email);
+        if (data.is_authenticated) {
+          setIsAnonymous(false);
+          setEmail(data.email || null);
+          setRemainingMessages(999);
+        } else {
+          setIsAnonymous(true);
+          setRemainingMessages(data.remaining ?? 3);
+          if (data.pending_email) {
+            setEmail(data.pending_email);
+          }
         }
       }
     } catch (error) {
       console.error("Failed to check auth:", error);
     }
-  }, [email]);
+  }, []);
+
+  // Poll for auth status changes (for email verification)
+  useEffect(() => {
+    // Check immediately on mount
+    checkAuthStatus();
+
+    const interval = setInterval(() => {
+      checkAuthStatus();
+    }, 3000); // Check every 3 seconds
+
+    return () => clearInterval(interval);
+  }, [checkAuthStatus]);
 
   // Load chats
   const loadChats = useCallback(async () => {
@@ -213,6 +246,7 @@ export default function ChatPage() {
         // Stream response
         const reader = res.body?.getReader();
         const decoder = new TextDecoder();
+        let fullResponse = "";
 
         if (reader) {
           while (true) {
@@ -227,7 +261,10 @@ export default function ChatPage() {
                 try {
                   const data = JSON.parse(line.replace("data:", "").trim());
                   if (data.content) {
-                    setStreamingMessage((prev) => prev + data.content);
+                    fullResponse += data.content;
+                    setStreamingMessage(fullResponse);
+                  } else if (data.done) {
+                    break;
                   }
                 } catch {
                   // Skip invalid JSON
@@ -238,12 +275,12 @@ export default function ChatPage() {
         }
 
         // Add assistant message after streaming
-        if (streamingMessage) {
+        if (fullResponse) {
           const assistantMessage: Message = {
             id: (Date.now() + 1).toString(),
             chat_id: chatId,
             role: "assistant",
-            content: streamingMessage,
+            content: fullResponse,
             metadata: {},
             created_at: new Date().toISOString(),
           };
@@ -263,7 +300,7 @@ export default function ChatPage() {
         setStreamingMessage("");
       }
     },
-    [chatId, loadChats, router, toast, streamingMessage],
+    [chatId, loadChats, router, toast],
   );
 
   // Handle file upload
@@ -302,8 +339,8 @@ export default function ChatPage() {
   // Handle upgrade
   const handleUpgrade = useCallback(
     async (email: string) => {
-      // Get session from auth check endpoint instead of reading cookie directly
-      const checkRes = await fetch("/api/auth/check");
+      // Get session from auth check endpoint
+      const checkRes = await fetch("/api/auth/session");
       const checkData = await checkRes.json();
 
       const sessionId = checkData.session_id;
@@ -324,33 +361,24 @@ export default function ChatPage() {
         throw new Error(data.error || "Upgrade failed");
       }
 
-      // If already upgraded (dev mode or instant upgrade)
-      if (data.upgraded || data.dev_mode) {
-        setEmail(email);
-        setIsAnonymous(false);
-        setRemainingMessages(999); // Unlimited for authenticated users
-        await checkAuthStatus(); // Refresh auth state
-        toast({
-          title: "Email verified!",
-          description: "You now have unlimited messages",
-        });
-      } else if (data.pending_verification) {
+      if (data.pending_verification) {
         setEmail(email);
         toast({
-          title: "Verification email sent",
+          title: "Check your email!",
           description:
-            "Check your inbox and click the link to complete upgrade",
+            "Click the magic link in the email to complete sign in. Your chats will be preserved.",
+          duration: 10000,
         });
       } else {
         setEmail(email);
-        await checkAuthStatus(); // Refresh auth state
+        await checkAuthStatus();
         toast({
           title: "Verification email sent",
-          description: "Check your inbox to verify your email",
+          description: "Check your inbox",
         });
       }
     },
-    [checkAuthStatus, setRemainingMessages, toast],
+    [checkAuthStatus, toast],
   );
 
   return (
