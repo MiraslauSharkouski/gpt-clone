@@ -41,22 +41,29 @@ export async function POST(
       userId = user.id;
     } else if (sessionId) {
       // Check anonymous session
-      const { data: session } = await supabase
-        .from("anonymous_sessions")
+      const { data: session } = await (
+        supabase.from("anonymous_sessions") as any
+      )
         .select("message_count, expires_at, upgraded_to_user_id")
         .eq("session_id", sessionId)
         .single();
 
-      if (!session || new Date(session.expires_at) < new Date()) {
+      const typedSession = session as {
+        message_count: number;
+        expires_at: string;
+        upgraded_to_user_id: string;
+      } | null;
+
+      if (!typedSession || new Date(typedSession.expires_at) < new Date()) {
         return NextResponse.json(
           { error: "upgrade_required", message: "Session expired" },
           { status: 403 },
         );
       }
 
-      if (session.upgraded_to_user_id) {
-        userId = session.upgraded_to_user_id;
-      } else if (session.message_count >= 3) {
+      if (typedSession.upgraded_to_user_id) {
+        userId = typedSession.upgraded_to_user_id;
+      } else if (typedSession.message_count >= 3) {
         return NextResponse.json(
           { error: "upgrade_required", message: "Message limit reached" },
           { status: 403 },
@@ -64,9 +71,8 @@ export async function POST(
       } else {
         isAnonymous = true;
         // Increment usage
-        await supabase
-          .from("anonymous_sessions")
-          .update({ message_count: session.message_count + 1 })
+        await (supabase.from("anonymous_sessions") as any)
+          .update({ message_count: typedSession.message_count + 1 })
           .eq("session_id", sessionId);
       }
     }
@@ -77,8 +83,7 @@ export async function POST(
 
     // Verify chat exists and belongs to user (or create if anonymous)
     if (userId) {
-      const { data: chat } = await supabase
-        .from("chats")
+      const { data: chat } = await (supabase.from("chats") as any)
         .select("id")
         .eq("id", chatId)
         .eq("user_id", userId)
@@ -90,7 +95,9 @@ export async function POST(
     }
 
     // Save user message
-    const { error: insertError } = await supabase.from("messages").insert({
+    const { error: insertError } = await (
+      supabase.from("messages") as any
+    ).insert({
       chat_id: chatId,
       role: "user",
       content: message,
@@ -101,8 +108,7 @@ export async function POST(
     }
 
     // Get conversation history
-    const { data: messages } = await supabase
-      .from("messages")
+    const { data: messages } = await (supabase.from("messages") as any)
       .select("role, content")
       .eq("chat_id", chatId)
       .order("created_at", { ascending: true })
@@ -125,10 +131,12 @@ export async function POST(
     }
 
     // Format messages for Qwen
-    const qwenMessages = (messages || []).map((m) => ({
-      role: m.role as "user" | "assistant" | "system",
-      content: m.content,
-    }));
+    const qwenMessages = (messages || []).map(
+      (m: { role: string; content: string }) => ({
+        role: m.role as "user" | "assistant" | "system",
+        content: m.content,
+      }),
+    );
 
     // Stream response from Qwen
     const stream = await streamQwenResponse({
@@ -172,7 +180,7 @@ export async function POST(
 
           // Save assistant response to database (fire and forget)
           if (fullResponse) {
-            await supabase.from("messages").insert({
+            await (supabase.from("messages") as any).insert({
               chat_id: chatId,
               role: "assistant",
               content: fullResponse,
