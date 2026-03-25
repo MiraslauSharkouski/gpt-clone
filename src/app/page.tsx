@@ -8,29 +8,35 @@ import { MessageSquare, Upload, Sparkles, Loader2 } from "lucide-react";
 export default function Home() {
   const router = useRouter();
   const [isInitializing, setIsInitializing] = useState(true);
+  const [authStatus, setAuthStatus] = useState<{
+    isAuthenticated: boolean;
+    email?: string;
+    remaining?: number;
+  } | null>(null);
 
-  // Create anonymous session on mount
+  // Check auth and create session if needed
   useEffect(() => {
     async function initSession() {
       try {
-        // Check if we already have a session
-        const checkRes = await fetch("/api/auth/check");
+        // Check current auth status
+        const checkRes = await fetch("/api/auth/session");
         if (checkRes.ok) {
           const data = await checkRes.json();
-          if (!data.upgrade_required) {
-            setIsInitializing(false);
-            return;
-          }
+          setAuthStatus({
+            isAuthenticated: data.is_authenticated,
+            email: data.email,
+            remaining: data.remaining,
+          });
         }
 
-        // Create new anonymous session
+        // Create anonymous session if not authenticated
         const res = await fetch("/api/auth/anonymous", { method: "POST" });
         if (res.ok) {
           // Session cookie is set by the API
-          setIsInitializing(false);
         }
       } catch (error) {
         console.error("Failed to initialize session:", error);
+      } finally {
         setIsInitializing(false);
       }
     }
@@ -76,10 +82,33 @@ export default function Home() {
       <header className="border-b">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-xl font-bold">QwenChat</h1>
-          <Button onClick={handleNewChat}>
-            <MessageSquare className="mr-2 h-4 w-4" />
-            New Chat
-          </Button>
+          <div className="flex items-center gap-4">
+            {/* Auth Status Badge */}
+            {authStatus && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-muted">
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    authStatus.isAuthenticated
+                      ? "bg-green-500"
+                      : "bg-yellow-500"
+                  }`}
+                />
+                {authStatus.isAuthenticated ? (
+                  <span className="text-green-600 dark:text-green-400 font-medium">
+                    ✓ Verified
+                  </span>
+                ) : (
+                  <span className="text-yellow-600 dark:text-yellow-400 font-medium">
+                    {authStatus.remaining ?? 3} messages left
+                  </span>
+                )}
+              </div>
+            )}
+            <Button onClick={handleNewChat}>
+              <MessageSquare className="mr-2 h-4 w-4" />
+              New Chat
+            </Button>
+          </div>
         </div>
       </header>
 
