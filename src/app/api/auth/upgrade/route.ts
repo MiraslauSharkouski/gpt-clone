@@ -3,7 +3,7 @@ import { createServerClient } from "@/lib/supabase/client";
 
 /**
  * POST /api/auth/upgrade
- * Upgrade anonymous session to authenticated user
+ * Send magic link for email verification
  */
 export async function POST(req: NextRequest) {
   try {
@@ -36,41 +36,36 @@ export async function POST(req: NextRequest) {
     // Check if Supabase is properly configured
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     if (!supabaseUrl || supabaseUrl.includes("placeholder")) {
-      // Development mode - simulate success and upgrade
-      console.log("Development mode: Simulating upgrade for", email);
+      return NextResponse.json(
+        { error: "Supabase not configured properly" },
+        { status: 500 },
+      );
+    }
 
-      // Store email in session for dev mode
-      try {
-        await supabase.from("anonymous_sessions").upsert(
-          {
-            session_id,
-            ip_hash: "dev",
-            message_count: 0,
-            expires_at: new Date(
-              Date.now() + 365 * 24 * 60 * 60 * 1000,
-            ).toISOString(),
-            upgraded_to_user_id: session_id,
-          } as any,
-          {
-            onConflict: "session_id",
-          },
-        );
-      } catch (e) {
-        console.log("Could not store upgrade in database");
-      }
-
-      // In dev mode, immediately mark as upgraded
-      return NextResponse.json({
-        message: "Development mode - email verified",
-        email,
-        dev_mode: true,
-        upgraded: true,
-      });
+    // Store session info for linking after email verification
+    try {
+      await supabase.from("anonymous_sessions").upsert(
+        {
+          session_id,
+          ip_hash: "pending",
+          message_count: 0,
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          pending_email: email, // Store email to link after verification
+        } as any,
+        {
+          onConflict: "session_id",
+        },
+      );
+    } catch (e) {
+      console.log("Could not store session for upgrade");
     }
 
     // Send magic link via Supabase Auth
     const { error: authError } = await supabase.auth.signInWithOtp({
       email,
+      options: {
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+      },
     });
 
     if (authError) {
@@ -84,25 +79,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Store session info for upgrade completion after email verification
-    try {
-      await supabase.from("anonymous_sessions").upsert(
-        {
-          session_id,
-          ip_hash: "pending",
-          message_count: 0,
-          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        } as any,
-        {
-          onConflict: "session_id",
-        },
-      );
-    } catch (e) {
-      console.log("Could not store session for upgrade");
-    }
-
     return NextResponse.json({
-      message: "Verification email sent. Click the link to complete upgrade.",
+      message:
+        "Verification email sent. Click the link in your email to complete sign in.",
       email,
       pending_verification: true,
     });
