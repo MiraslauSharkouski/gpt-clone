@@ -20,12 +20,12 @@ export async function GET(req: NextRequest) {
       expiresAt.setHours(expiresAt.getHours() + 24);
 
       try {
-        await supabase.from("anonymous_sessions").insert({
+        await (supabase.from("anonymous_sessions") as any).insert({
           session_id: sessionId,
           ip_hash: ipHash,
           message_count: 0,
           expires_at: expiresAt.toISOString(),
-        } as any);
+        });
       } catch (e) {
         console.log("Could not create session in database (dev mode)");
       }
@@ -60,8 +60,14 @@ export async function GET(req: NextRequest) {
 
     // If session found in database
     if (session) {
+      const typedSession = session as {
+        message_count: number;
+        expires_at: string;
+        upgraded_to_user_id?: string;
+      };
+
       // Check if session expired
-      if (new Date(session.expires_at) < new Date()) {
+      if (new Date(typedSession.expires_at) < new Date()) {
         return NextResponse.json({
           session_id: sessionId,
           is_authenticated: false,
@@ -71,24 +77,24 @@ export async function GET(req: NextRequest) {
       }
 
       // Check if upgraded to authenticated user
-      if (session.upgraded_to_user_id) {
+      if (typedSession.upgraded_to_user_id) {
         return NextResponse.json({
           session_id: sessionId,
           is_authenticated: true,
           upgrade_required: false,
-          usage_count: session.message_count,
+          usage_count: typedSession.message_count,
         });
       }
 
       // Check usage limit
-      const upgradeRequired = session.message_count >= 3;
+      const upgradeRequired = typedSession.message_count >= 3;
 
       return NextResponse.json({
         session_id: sessionId,
         is_authenticated: false,
         upgrade_required: upgradeRequired,
-        usage_count: session.message_count,
-        remaining: Math.max(0, 3 - session.message_count),
+        usage_count: typedSession.message_count,
+        remaining: Math.max(0, 3 - typedSession.message_count),
       });
     }
 
