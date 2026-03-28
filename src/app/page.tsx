@@ -23,6 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { UpgradeModal } from "@/components/chat/upgrade-modal";
 
 export default function Home() {
   const router = useRouter();
@@ -32,6 +33,7 @@ export default function Home() {
     email?: string;
     remaining?: number;
   } | null>(null);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
   // Check auth and create session if needed
   useEffect(() => {
@@ -120,7 +122,7 @@ export default function Home() {
   };
 
   const handleSignIn = () => {
-    router.push("/chat");
+    setUpgradeModalOpen(true);
   };
 
   if (isInitializing) {
@@ -267,6 +269,12 @@ export default function Home() {
           Powered by Qwen-2.5 • Built with Next.js & Supabase
         </div>
       </footer>
+
+      {/* Sign In / Upgrade Modal */}
+      <UpgradeModal
+        open={upgradeModalOpen}
+        onOpenChange={setUpgradeModalOpen}
+      />
     </div>
   );
 }

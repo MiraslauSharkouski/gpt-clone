@@ -35,50 +35,64 @@ export default function ChatPage() {
 
   // Check auth on mount - runs immediately
   useEffect(() => {
-    // Check Supabase auth FIRST (instant, cached)
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const checkAuth = async () => {
+      // Check Supabase auth (from localStorage)
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       if (session) {
         setIsAnonymous(false);
         setEmail(session.user.email || null);
         setRemainingMessages(999);
-      } else {
-        // Not authenticated, check anonymous session
-        fetch("/api/auth/session")
-          .then(async (res) => {
-            if (res.ok) {
-              const data = await res.json();
-              setIsAnonymous(!data.is_authenticated);
-              setRemainingMessages(data.remaining ?? 3);
-              if (data.email) setEmail(data.email);
-            }
-          })
-          .catch(console.error);
       }
-    });
+    };
+
+    checkAuth();
+
+    // Poll every 0 seconds to catch auth changes from other tabs
+    const interval = setInterval(checkAuth, 0);
+
+    return () => clearInterval(interval);
   }, []);
 
   // Listen for Supabase auth changes (instant updates)
-  // Only update if session actually changes
   useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      // Only update on specific events
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        if (session) {
-          setIsAnonymous(false);
-          setEmail(session.user.email || null);
-          setRemainingMessages(999);
-        }
-      } else if (event === "SIGNED_OUT") {
-        setIsAnonymous(true);
-        setEmail(null);
-        setRemainingMessages(3);
+      // Update on ALL auth events for real-time sync
+      if (session) {
+        setIsAnonymous(false);
+        setEmail(session.user.email || null);
+        setRemainingMessages(999);
       }
-      // Ignore other events to prevent flickering
     });
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  // Also check auth when page becomes visible (catches email verification)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session) {
+            setIsAnonymous(false);
+            setEmail(session.user.email || null);
+            setRemainingMessages(999);
+          }
+        });
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleVisibilityChange);
+    };
   }, []);
 
   // Load chats
