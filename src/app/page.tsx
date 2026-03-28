@@ -26,7 +26,7 @@ export default function Home() {
   useEffect(() => {
     async function initSession() {
       try {
-        // Check Supabase auth first (client-side, most reliable)
+        // Check Supabase auth first (instant, client-side)
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -38,21 +38,10 @@ export default function Home() {
             remaining: 999,
           });
         } else {
-          // Check server session
-          const checkRes = await fetch("/api/auth/session");
-          if (checkRes.ok) {
-            const data = await checkRes.json();
-            setAuthStatus({
-              isAuthenticated: data.is_authenticated || false,
-              email: data.email,
-              remaining: data.remaining ?? 3,
-            });
-          } else {
-            setAuthStatus({
-              isAuthenticated: false,
-              remaining: 3,
-            });
-          }
+          setAuthStatus({
+            isAuthenticated: false,
+            remaining: 3,
+          });
         }
 
         // Create anonymous session if not authenticated
@@ -75,7 +64,7 @@ export default function Home() {
 
     initSession();
 
-    // Listen for auth changes
+    // Listen for auth changes (instant updates)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {

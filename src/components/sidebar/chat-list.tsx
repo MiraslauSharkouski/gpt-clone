@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Plus, MessageSquare, Trash2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { Chat } from '@/types';
+import React from "react";
+import { Button } from "@/components/ui/button";
+import { Plus, MessageSquare, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { Chat } from "@/types";
 
 interface ChatListProps {
   chats: Chat[];
@@ -49,10 +49,7 @@ export function ChatList({
         {isLoading && (
           <div className="space-y-2">
             {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-12 rounded-md bg-muted animate-pulse"
-              />
+              <div key={i} className="h-12 rounded-md bg-muted animate-pulse" />
             ))}
           </div>
         )}
@@ -61,10 +58,10 @@ export function ChatList({
           <div
             key={chat.id}
             className={cn(
-              'group flex items-center gap-2 p-3 rounded-md cursor-pointer transition-colors',
+              "group flex items-center gap-2 p-3 rounded-md cursor-pointer transition-colors",
               activeChatId === chat.id
-                ? 'bg-accent text-accent-foreground'
-                : 'hover:bg-muted'
+                ? "bg-accent text-accent-foreground"
+                : "hover:bg-muted",
             )}
             onClick={() => onSelectChat(chat.id)}
           >

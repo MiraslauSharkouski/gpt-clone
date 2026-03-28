@@ -27,60 +27,59 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarLoading, setIsSidebarLoading] = useState(true);
 
-  // Auth state
+  // Auth state - initialize from Supabase immediately
   const [isAnonymous, setIsAnonymous] = useState(true);
   const [email, setEmail] = useState<string | null>(null);
   const [remainingMessages, setRemainingMessages] = useState(3);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
-  // Check auth status (client-side for real-time updates)
-  const checkAuthStatus = useCallback(async () => {
-    try {
-      // Check Supabase auth first (client-side)
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
+  // Check auth on mount - runs immediately
+  useEffect(() => {
+    // Check Supabase auth FIRST (instant, cached)
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        // User is authenticated via Supabase
         setIsAnonymous(false);
         setEmail(session.user.email || null);
-        setRemainingMessages(999); // Unlimited for authenticated users
-        return;
+        setRemainingMessages(999);
+      } else {
+        // Not authenticated, check anonymous session
+        fetch("/api/auth/session")
+          .then(async (res) => {
+            if (res.ok) {
+              const data = await res.json();
+              setIsAnonymous(!data.is_authenticated);
+              setRemainingMessages(data.remaining ?? 3);
+              if (data.email) setEmail(data.email);
+            }
+          })
+          .catch(console.error);
       }
-
-      // Fallback: check server session
-      const res = await fetch("/api/auth/session");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.is_authenticated) {
-          setIsAnonymous(false);
-          setEmail(data.email || null);
-          setRemainingMessages(999);
-        } else {
-          setIsAnonymous(true);
-          setRemainingMessages(data.remaining ?? 3);
-          if (data.pending_email) {
-            setEmail(data.pending_email);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Failed to check auth:", error);
-    }
+    });
   }, []);
 
-  // Poll for auth status changes (for email verification)
+  // Listen for Supabase auth changes (instant updates)
+  // Only update if session actually changes
   useEffect(() => {
-    // Check immediately on mount
-    checkAuthStatus();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // Only update on specific events
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        if (session) {
+          setIsAnonymous(false);
+          setEmail(session.user.email || null);
+          setRemainingMessages(999);
+        }
+      } else if (event === "SIGNED_OUT") {
+        setIsAnonymous(true);
+        setEmail(null);
+        setRemainingMessages(3);
+      }
+      // Ignore other events to prevent flickering
+    });
 
-    const interval = setInterval(() => {
-      checkAuthStatus();
-    }, 3000); // Check every 3 seconds
-
-    return () => clearInterval(interval);
-  }, [checkAuthStatus]);
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Load chats
   const loadChats = useCallback(async () => {
@@ -371,14 +370,14 @@ export default function ChatPage() {
         });
       } else {
         setEmail(email);
-        await checkAuthStatus();
+        // Auth state will update automatically via onAuthStateChange listener
         toast({
           title: "Verification email sent",
           description: "Check your inbox",
         });
       }
     },
-    [checkAuthStatus, toast],
+    [toast],
   );
 
   return (
