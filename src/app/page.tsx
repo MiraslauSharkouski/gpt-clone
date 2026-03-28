@@ -3,7 +3,15 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Upload, Sparkles, Loader2 } from "lucide-react";
+import {
+  MessageSquare,
+  Upload,
+  Sparkles,
+  Loader2,
+  CheckCircle2,
+  UserCircle,
+} from "lucide-react";
+import { supabase } from "@/lib/supabase/client";
 
 export default function Home() {
   const router = useRouter();
@@ -18,30 +26,67 @@ export default function Home() {
   useEffect(() => {
     async function initSession() {
       try {
-        // Check current auth status
-        const checkRes = await fetch("/api/auth/session");
-        if (checkRes.ok) {
-          const data = await checkRes.json();
+        // Check Supabase auth first (client-side, most reliable)
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session) {
           setAuthStatus({
-            isAuthenticated: data.is_authenticated,
-            email: data.email,
-            remaining: data.remaining,
+            isAuthenticated: true,
+            email: session.user.email || undefined,
+            remaining: 999,
           });
+        } else {
+          // Check server session
+          const checkRes = await fetch("/api/auth/session");
+          if (checkRes.ok) {
+            const data = await checkRes.json();
+            setAuthStatus({
+              isAuthenticated: data.is_authenticated || false,
+              email: data.email,
+              remaining: data.remaining ?? 3,
+            });
+          } else {
+            setAuthStatus({
+              isAuthenticated: false,
+              remaining: 3,
+            });
+          }
         }
 
         // Create anonymous session if not authenticated
-        const res = await fetch("/api/auth/anonymous", { method: "POST" });
-        if (res.ok) {
-          // Session cookie is set by the API
+        if (!session) {
+          const res = await fetch("/api/auth/anonymous", { method: "POST" });
+          if (res.ok) {
+            // Session cookie is set by the API
+          }
         }
       } catch (error) {
         console.error("Failed to initialize session:", error);
+        setAuthStatus({
+          isAuthenticated: false,
+          remaining: 3,
+        });
       } finally {
         setIsInitializing(false);
       }
     }
 
     initSession();
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      setAuthStatus({
+        isAuthenticated: !!session,
+        email: session?.user?.email || undefined,
+        remaining: session ? 999 : 3,
+      });
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleNewChat = async () => {
@@ -86,21 +131,25 @@ export default function Home() {
             {/* Auth Status Badge */}
             {authStatus && (
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-muted">
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    authStatus.isAuthenticated
-                      ? "bg-green-500"
-                      : "bg-yellow-500"
-                  }`}
-                />
                 {authStatus.isAuthenticated ? (
-                  <span className="text-green-600 dark:text-green-400 font-medium">
-                    ✓ Verified
-                  </span>
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    <span className="text-green-600 dark:text-green-400 font-medium">
+                      ✓ Verified
+                    </span>
+                    {authStatus.email && (
+                      <span className="text-muted-foreground text-xs ml-2 hidden sm:inline">
+                        {authStatus.email}
+                      </span>
+                    )}
+                  </>
                 ) : (
-                  <span className="text-yellow-600 dark:text-yellow-400 font-medium">
-                    {authStatus.remaining ?? 3} messages left
-                  </span>
+                  <>
+                    <UserCircle className="w-4 h-4 text-yellow-500" />
+                    <span className="text-yellow-600 dark:text-yellow-400 font-medium">
+                      {authStatus.remaining ?? 3} messages left
+                    </span>
+                  </>
                 )}
               </div>
             )}
@@ -120,7 +169,7 @@ export default function Home() {
               <Sparkles className="w-8 h-8" />
             </div>
             <h2 className="text-3xl font-bold tracking-tight">
-              Welcome to ChatGPT
+              Welcome to QwenChat
             </h2>
             <p className="text-muted-foreground text-lg">
               Your AI-powered chat assistant with document understanding
