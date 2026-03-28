@@ -10,8 +10,19 @@ import {
   Loader2,
   CheckCircle2,
   UserCircle,
+  LogOut,
+  LogIn,
+  ChevronDown,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Home() {
   const router = useRouter();
@@ -99,6 +110,19 @@ export default function Home() {
     }
   };
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setAuthStatus({
+      isAuthenticated: false,
+      remaining: 3,
+    });
+    window.location.reload();
+  };
+
+  const handleSignIn = () => {
+    router.push("/chat");
+  };
+
   if (isInitializing) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -117,30 +141,71 @@ export default function Home() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-xl font-bold">QwenChat</h1>
           <div className="flex items-center gap-4">
-            {/* Auth Status Badge */}
+            {/* Auth Status Dropdown Menu */}
             {authStatus && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-muted">
-                {authStatus.isAuthenticated ? (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
-                    <span className="text-green-600 dark:text-green-400 font-medium">
-                      ✓ Verified
-                    </span>
-                    {authStatus.email && (
-                      <span className="text-muted-foreground text-xs ml-2 hidden sm:inline">
-                        {authStatus.email}
-                      </span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    {authStatus.isAuthenticated ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        <span className="hidden sm:inline">✓ Verified</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserCircle className="w-4 h-4 text-yellow-500" />
+                        <span className="hidden sm:inline">
+                          {authStatus.remaining ?? 3} messages left
+                        </span>
+                      </>
                     )}
-                  </>
-                ) : (
-                  <>
-                    <UserCircle className="w-4 h-4 text-yellow-500" />
-                    <span className="text-yellow-600 dark:text-yellow-400 font-medium">
-                      {authStatus.remaining ?? 3} messages left
-                    </span>
-                  </>
-                )}
-              </div>
+                    <ChevronDown className="w-4 h-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  {authStatus.isAuthenticated ? (
+                    <>
+                      <DropdownMenuLabel>
+                        <div className="flex flex-col space-y-1">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-green-500" />
+                            <span className="font-medium">✓ Verified</span>
+                          </div>
+                          {authStatus.email && (
+                            <span className="text-xs text-muted-foreground truncate">
+                              {authStatus.email}
+                            </span>
+                          )}
+                        </div>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleSignOut}>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        <span>Sign Out</span>
+                      </DropdownMenuItem>
+                    </>
+                  ) : (
+                    <>
+                      <DropdownMenuLabel>
+                        <div className="flex flex-col space-y-1">
+                          <div className="flex items-center gap-2">
+                            <UserCircle className="w-4 h-4 text-yellow-500" />
+                            <span className="font-medium">Anonymous User</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {authStatus.remaining ?? 3} messages remaining
+                          </span>
+                        </div>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleSignIn}>
+                        <LogIn className="mr-2 h-4 w-4" />
+                        <span>Sign In / Sign Up</span>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
             <Button onClick={handleNewChat}>
               <MessageSquare className="mr-2 h-4 w-4" />
