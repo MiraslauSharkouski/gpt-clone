@@ -47,7 +47,7 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ chat: { ...chat, messages } });
+    return NextResponse.json({ chat: { ...(chat as any), messages } });
   } catch (error) {
     console.error("Get chat error:", error);
     return NextResponse.json(
