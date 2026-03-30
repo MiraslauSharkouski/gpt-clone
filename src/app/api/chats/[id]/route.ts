@@ -76,8 +76,7 @@ export async function PATCH(
     const { id: chatId } = await params;
     const { title } = await req.json();
 
-    const { error } = await supabase
-      .from("chats")
+    const { error } = await (supabase.from("chats") as any)
       .update({ title })
       .eq("id", chatId)
       .eq("user_id", sessionId);
@@ -118,8 +117,7 @@ export async function DELETE(
 
     const { id: chatId } = await params;
 
-    const { error } = await supabase
-      .from("chats")
+    const { error } = await (supabase.from("chats") as any)
       .update({ is_deleted: true })
       .eq("id", chatId)
       .eq("user_id", sessionId);
