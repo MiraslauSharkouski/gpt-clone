@@ -15,11 +15,11 @@ export async function searchRelevantChunks({
   const supabase = createServerClient();
 
   // Use pgvector cosine similarity search
-  const { data, error } = await (supabase.rpc("search_document_chunks", {
+  const { data, error } = await supabase.rpc("search_document_chunks", {
     query_embedding: queryEmbedding,
     match_chat_id: chatId,
     match_count: topK,
-  }) as any);
+  } as any);
 
   if (error) {
     // Fallback: manual query if RPC doesn't exist
@@ -41,8 +41,10 @@ export async function searchRelevantChunks({
         const similarity = cosineSimilarity(queryEmbedding, item.embedding);
         return { text: item.chunk_text, similarity };
       })
-      .filter(Boolean)
-      .sort((a, b) => b!.similarity - a!.similarity)
+      .filter(
+        (item): item is { text: string; similarity: number } => item !== null,
+      )
+      .sort((a, b) => b.similarity - a.similarity)
       .slice(0, topK);
 
     return results;
