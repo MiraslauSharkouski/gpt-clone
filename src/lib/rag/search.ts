@@ -1,4 +1,4 @@
-import { createServerClient } from '@/lib/supabase/client';
+import { createServerClient } from "@/lib/supabase/client";
 
 /**
  * Search for relevant document chunks using vector similarity
@@ -15,22 +15,22 @@ export async function searchRelevantChunks({
   const supabase = createServerClient();
 
   // Use pgvector cosine similarity search
-  const { data, error } = await supabase.rpc('search_document_chunks', {
+  const { data, error } = await (supabase.rpc("search_document_chunks", {
     query_embedding: queryEmbedding,
     match_chat_id: chatId,
     match_count: topK,
-  });
+  }) as any);
 
   if (error) {
     // Fallback: manual query if RPC doesn't exist
     const fallbackResult = await supabase
-      .from('document_chunks')
-      .select('chunk_text, embedding, documents!inner(chat_id)')
-      .eq('documents.chat_id', chatId)
+      .from("document_chunks")
+      .select("chunk_text, embedding, documents!inner(chat_id)")
+      .eq("documents.chat_id", chatId)
       .limit(topK * 3); // Get more and sort manually
 
     if (fallbackResult.error) {
-      console.error('Search error:', fallbackResult.error);
+      console.error("Search error:", fallbackResult.error);
       return [];
     }
 
@@ -72,10 +72,12 @@ function cosineSimilarity(a: number[], b: number[]): number {
 /**
  * Format retrieved chunks as context for the LLM
  */
-export function formatContext(chunks: { text: string; similarity: number }[]): string {
-  if (chunks.length === 0) return '';
+export function formatContext(
+  chunks: { text: string; similarity: number }[],
+): string {
+  if (chunks.length === 0) return "";
 
   return chunks
     .map((chunk, index) => `[Context ${index + 1}]: ${chunk.text}`)
-    .join('\n\n');
+    .join("\n\n");
 }
